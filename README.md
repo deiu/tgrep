@@ -68,7 +68,7 @@ tgrep <pattern> ---TCP---> tgrep serve (multi-client)
 - **HybridIndex** — merges both layers; overlay takes precedence
 - **Background Indexer** — builds the index in parallel batches of 1,024 files 
   (with additional byte-based splitting); a cold start serves an empty index until
-  the first build is published, while a resumed partial index is capped at 500 files
+  the first build is published, while a resumed partial index is processed at 500 files
 - **Periodic Flush** — every 50K files or 5 minutes, the in-memory index is
   flushed to disk and the reader is swapped, keeping memory bounded
 - **File Watcher** — `notify` crate watches the repo; updates LiveIndex in
