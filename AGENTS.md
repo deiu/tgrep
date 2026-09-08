@@ -224,8 +224,9 @@ If you expose tgrep to a model as a tool, a minimal schema is:
 }
 ```
 
-Run `tgrep <flags...> -- <pattern> <path>` and return stdout, stderr and the
-exit code together. Treat `1` as "no results", not as a failure. Treat `2` as
-an error; stderr then carries the cause, such as a bad regex. Always pass
-stderr through regardless of the exit code: the "no index" warning arrives
-with code `0` or `1` and explains why a search was slow.
+Before invoking tgrep, canonicalize `path` beneath the configured repository root
+and reject paths that resolve outside it. Allowlist search-only flags rather than
+forwarding arbitrary tokens. Then run `tgrep <flags...> -- <pattern> <path>` and
+return stdout, stderr and the exit code together. Treat `1` as "no results", not
+as a failure. Treat `2` as an error; stderr carries the cause, such as a bad regex.
+Always return stderr: the "no index" warning can arrive with code `0` or `1`.
