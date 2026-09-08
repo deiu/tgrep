@@ -22,10 +22,10 @@ A search resolves in this order:
    notification is repaired only by periodic reconciliation (scheduled hourly
    and deferrable for up to four hours while queried); `--no-watch` disables it.
 2. **On-disk index** but no server: read `.tgrep/` directly. Fast, but only as
-   fresh as the last `tgrep index` run. If a `serve` was interrupted during
-   its first build, the files it had checkpointed remain on disk as an index
-   marked incomplete, and a search still uses it without complaint. Rebuild
-   with `tgrep index .` or resume `tgrep serve .` before an exhaustive search.
+   fresh as the last successful index publication. If a `serve` was interrupted
+   during its first build, an index marked incomplete can remain on disk, and a
+   search may still try to use it without warning even though it can be empty or
+   partial. Rebuild with `tgrep index .` or resume `tgrep serve .` before an exhaustive search.
 3. **No index**: scan every file, like grep. Correct but slow on large trees.
    tgrep prints a warning on stderr when this happens.
 
