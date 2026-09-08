@@ -704,7 +704,7 @@ exit code determined by the search alone. Suppress the message with
    builds one in the background (batches of 1,024 files and may split sooner 
    by byte budgets); queries see an empty index until that first build is published, 
    and see partial data only when a partial index is being resumed. The index is 
-   flushed to disk every 50K files or 5 minutes. Multiple clients connect simultaneously;
+   auto-saved after 5,000 pending mutations by default or after 10 minutes with unsaved changes. Multiple clients connect simultaneously;
    searches use read locks for zero contention.
 
 ## On-Disk Format
