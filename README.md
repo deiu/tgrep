@@ -704,7 +704,8 @@ exit code determined by the search alone. Suppress the message with
    builds one in the background (batches of 1,024 files and may split sooner 
    by byte budgets); queries see an empty index until that first build is published, 
    and see partial data only when a partial index is being resumed. The index is 
-   auto-saved after 5,000 pending mutations by default or after 10 minutes with unsaved changes. Multiple clients connect simultaneously;
+   after the initial build, pending changes are auto-saved when 5,000 content mutations accumulate by default, or on the first periodic check at least 10 minutes after startup or the last successful save. Multiple clients connect simultaneously;
+
    searches use read locks for zero contention.
 
 ## On-Disk Format
