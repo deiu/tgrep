@@ -72,13 +72,13 @@ same names and meanings; an unsupported flag is rejected with an error rather
 than ignored. The full list is in the [README](README.md#cli-flags).
 
 ```bash
-tgrep "fn parse_config" .                 # regex, default
-tgrep -F "Vec<Option<T>>" .               # literal string
-tgrep -w "handle" . -t rust               # whole word, Rust files only
-tgrep "TODO|FIXME" . -g "src/**" -C 2     # glob scope, 2 lines of context
-tgrep "impl .* for Server" . -l           # file names only
-tgrep "deprecated" . -c                   # count per file
-tgrep --files . -t py                     # list searchable Python files
+tgrep -- "fn parse_config" .                 # regex, default
+tgrep -F -- "Vec<Option<T>>" .               # literal string
+tgrep -w -t rust -- handle .                 # whole word, Rust files only
+tgrep -g "src/**" -C 2 -- "TODO|FIXME" .     # glob scope, 2 lines of context
+tgrep -l -- "impl .* for Server" .           # file names only
+tgrep -c -- deprecated .                     # count per file
+tgrep --files -t py .                        # list searchable Python files
 ```
 
 Rules of thumb for agents:
@@ -86,7 +86,8 @@ Rules of thumb for agents:
 - **Put `--` before the pattern** and pass the search root explicitly. Shell
   quotes do not stop the parser from reading a bare `index`, `serve`,
   `search`, `status`, `count-files` or `help` as a subcommand;
-  `tgrep -- serve .` searches for the word.
+  `tgrep -- serve .` searches for the word. Everything after `--` is read as
+  the pattern and paths, so all flags must come before it.
 - **Prefer `-F`** when the query is a symbol or a string the user typed. It
   avoids regex-escaping mistakes.
 - **Narrow with `-t` or `-g`** before adding `-m`. The index makes scoping
