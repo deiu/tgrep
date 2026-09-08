@@ -28,9 +28,11 @@ A search resolves in this order:
 
 An agent never has to choose between these; the command is the same. Results
 can differ, though: an on-disk index omits changes since its last build, and a
-server that is still building its index answers from partial data. For an
-exhaustive search, check `tgrep status .` and wait for `Indexing: complete`,
-or rebuild with `tgrep index .`.
+server that is still building its index answers from partial data. `tgrep
+status .` shows `Indexing: complete` once the initial build is done, but that
+does not cover watcher events missed later. When a search must reflect the
+filesystem exactly as it is now, pass `--no-index`. It scans every file and
+is slow on large trees, so use it deliberately.
 
 ## Setup
 
@@ -77,7 +79,9 @@ tgrep --files . -t py                     # list searchable Python files
 
 Rules of thumb for agents:
 
-- **Quote the pattern** and pass the search root explicitly (`.` or a path).
+- **Put `--` before the pattern** and pass the search root explicitly. Shell
+  quotes do not stop the parser from reading a bare `serve`, `index` or
+  `status` as a subcommand; `tgrep -- serve .` searches for the word.
 - **Prefer `-F`** when the query is a symbol or a string the user typed. It
   avoids regex-escaping mistakes.
 - **Narrow with `-t` or `-g`** before adding `-m`. The index makes scoping
@@ -92,15 +96,17 @@ Rules of thumb for agents:
 `--json` emits one JSON object per line, in ripgrep's format. Record types
 are `begin`, `match`, `context`, `end`, and `summary`.
 
+Real output, run from a checkout of this repository:
+
 ```bash
-tgrep "fn main" . --json
+tgrep --json -F -- "fn main" tgrep-cli/build.rs
 ```
 
 ```json
-{"data":{"path":{"text":"src/main.rs"}},"type":"begin"}
-{"data":{"absolute_offset":38226,"line_number":998,"lines":{"text":"fn main() {\n"},"path":{"text":"src/main.rs"},"submatches":[{"end":7,"match":{"text":"fn main"},"start":0}]},"type":"match"}
-{"data":{"binary_offset":null,"path":{"text":"src/main.rs"},"stats":{"bytes_printed":269,"bytes_searched":50644,"elapsed":{"human":"0.000019s","nanos":18541,"secs":0},"matched_lines":1,"matches":1,"searches":1,"searches_with_match":1}},"type":"end"}
-{"data":{"elapsed_total":{"human":"0.000834s","nanos":833792,"secs":0},"stats":{"bytes_printed":529,"bytes_searched":50644,"elapsed":{"human":"0.000834s","nanos":833792,"secs":0},"matched_lines":1,"matches":1,"searches":1,"searches_with_match":1}},"type":"summary"}
+{"data":{"path":{"text":"tgrep-cli/build.rs"}},"type":"begin"}
+{"data":{"absolute_offset":400,"line_number":11,"lines":{"text":"fn main() {\n"},"path":{"text":"tgrep-cli/build.rs"},"submatches":[{"end":7,"match":{"text":"fn main"},"start":0}]},"type":"match"}
+{"data":{"binary_offset":null,"path":{"text":"tgrep-cli/build.rs"},"stats":{"bytes_printed":260,"bytes_searched":1775,"elapsed":{"human":"0.000010s","nanos":9709,"secs":0},"matched_lines":1,"matches":1,"searches":1,"searches_with_match":1}},"type":"end"}
+{"data":{"elapsed_total":{"human":"0.000470s","nanos":469542,"secs":0},"stats":{"bytes_printed":515,"bytes_searched":1775,"elapsed":{"human":"0.000470s","nanos":469542,"secs":0},"matched_lines":1,"matches":1,"searches":1,"searches_with_match":1}},"type":"summary"}
 ```
 
 Any parser written for `rg --json` works as is.
@@ -182,9 +188,13 @@ If you expose tgrep to a model as a tool, a minimal schema is:
   "name": "tgrep",
   "description": "Fast regex search over the repository. ripgrep-compatible flags. Use -F for literal strings, -t/-g to scope, -l for file names only, -C N for context.",
   "parameters": {
-    "pattern": {"type": "string"},
-    "path": {"type": "string", "default": "."},
-    "flags": {"type": "array", "items": {"type": "string"}}
+    "type": "object",
+    "properties": {
+      "pattern": {"type": "string", "description": "Regex, or literal string with -F"},
+      "path": {"type": "string", "default": "."},
+      "flags": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["pattern"]
   }
 }
 ```
