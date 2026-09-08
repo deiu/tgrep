@@ -27,10 +27,12 @@ A search resolves in this order:
    tgrep prints a warning on stderr when this happens.
 
 An agent never has to choose between these; the command is the same. Results
-can differ, though: an on-disk index omits changes since its last build, and a
-server that is still building its index answers from partial data. `tgrep
-status .` shows `Indexing: complete` once the initial build is done, but that
-does not cover watcher events missed later. When a search must reflect the
+can differ, though. An on-disk index omits changes since its last build. A
+server started with no index at all answers from an empty index, so every
+search returns nothing, until the first build completes. A server resuming a
+partial index answers from what it has so far. `tgrep status .` shows
+`Indexing: complete` once the initial build is done, but that does not cover
+watcher events missed later. When a search must reflect the
 filesystem exactly as it is now, pass `--no-index`. It scans every file and
 is slow on large trees, so use it deliberately.
 
@@ -58,8 +60,9 @@ tgrep status .
 ```
 
 If your agent framework cannot keep a background process alive, skip `serve`
-and run `tgrep index .` instead. Searches then use the on-disk index. Re-run
-`tgrep index .` after large changes (branch switch, generated code).
+and run `tgrep index .` instead. Searches then use the on-disk index. That
+index is not updated by searches or edits, so re-run `tgrep index .` after any
+change a later search has to see, including your own edits.
 
 ## Searching
 
@@ -139,8 +142,10 @@ Avoid these on large repositories unless you need them.
 
 ## Freshness
 
-- With a **server**, results reflect the filesystem as of the last watcher
-  event. Edits made a moment ago are visible.
+- With a **server**, results reflect the last watcher event the indexing
+  worker has processed. Events are queued and applied asynchronously, so a
+  search issued right after an edit can run before the index has caught up.
+  Use `--no-index` when the very latest edit must be visible.
 - With only an **on-disk index**, results reflect the last `tgrep index`.
   Files created since then are not found. Run `tgrep index .` again, or
   start `tgrep serve .`.
@@ -199,5 +204,7 @@ If you expose tgrep to a model as a tool, a minimal schema is:
 }
 ```
 
-Run `tgrep <flags...> -- <pattern> <path>` and return stdout. Treat exit code
-`1` as "no results", not as a failure.
+Run `tgrep <flags...> -- <pattern> <path>` and return stdout, stderr and the
+exit code together. Treat `1` as "no results", not as a failure. Treat `2` as
+an error and surface stderr; it carries the bad-regex message or the
+"no index" warning that explains an empty or slow result.
