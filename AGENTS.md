@@ -22,7 +22,10 @@ A search resolves in this order:
    notification is repaired only by periodic reconciliation (scheduled hourly
    and deferrable for up to four hours while queried); `--no-watch` disables it.
 2. **On-disk index** but no server: read `.tgrep/` directly. Fast, but only as
-   fresh as the last `tgrep index` run.
+   fresh as the last `tgrep index` run. If a `serve` was interrupted during
+   its first build, the files it had checkpointed remain on disk as an index
+   marked incomplete, and a search still uses it without complaint. Rebuild
+   with `tgrep index .` or resume `tgrep serve .` before an exhaustive search.
 3. **No index**: scan every file, like grep. Correct but slow on large trees.
    tgrep prints a warning on stderr when this happens.
 
@@ -31,8 +34,10 @@ can differ, though. An on-disk index omits changes since its last build. A
 server started with no index at all answers from an empty index, so every
 search returns nothing, until the first build completes. A server resuming a
 partial index answers from what it has so far. `tgrep status .` shows
-`Indexing: complete` once the initial build is done, but that does not cover
-watcher events missed later. When a search must reflect current file
+`Indexing: complete` once the initial build is done. Do not read it as a
+freshness signal: a server that starts on an existing index reconciles it
+against the filesystem in the background while already reporting complete,
+and it never covers watcher events missed later. When a search must reflect current file
 contents, pass `--no-index`. It reads every eligible file from disk instead of
 consulting the index, still applying the normal ignore, hidden-file, binary
 and size rules. It is slow on large trees, so use it deliberately.
@@ -68,8 +73,11 @@ change a later search has to see, including your own edits.
 ## Searching
 
 The command line follows ripgrep. The common `rg` flags are supported with the
-same names and meanings; an unsupported flag is rejected with an error rather
-than ignored. The full list is in the [README](README.md#cli-flags).
+same names; an unsupported flag is rejected with an error rather than ignored.
+The full list is in the [README](README.md#cli-flags). Three accepted flags
+only take effect on a full scan: `-L`/`--follow`, `--one-file-system` and
+`--ignore-file`. An indexed search ignores them silently, so pair them with
+`--no-index`.
 
 ```bash
 tgrep -- "fn parse_config" .                 # regex, default
@@ -115,7 +123,10 @@ tgrep --json -F -- "fn main" tgrep-cli/build.rs
 {"data":{"elapsed_total":{"human":"0.000470s","nanos":469542,"secs":0},"stats":{"bytes_printed":515,"bytes_searched":1775,"elapsed":{"human":"0.000470s","nanos":469542,"secs":0},"matched_lines":1,"matches":1,"searches":1,"searches_with_match":1}},"type":"summary"}
 ```
 
-Any parser written for `rg --json` works as is.
+Any parser written for `rg --json` works as is, with one exception: on a line
+that is not valid UTF-8, ripgrep emits base64 `lines.bytes`, while tgrep
+always emits `lines.text` with each bad byte replaced by U+FFFD. A consumer
+that depends on the raw bytes of such lines will see repaired text instead.
 
 `--vimgrep` gives `file:line:col:text`, one row per match, which is the
 easiest format to feed into a "jump to location" step.
@@ -162,8 +173,13 @@ them. If they differ, the client either cannot find the server or silently
 searches a different set of files.
 
 - `--exclude <DIR>`: `index` and `serve` only. Use the same value on both.
-- `--index-path`, `--max-filesize`, `--no-require-git`: `index`, `serve` and
-  every search.
+- `--no-ignore`: `index` and `serve` must agree. A server started without it
+  on an index built with it treats the ignored files as deleted and drops
+  them. Passing it to a search is different: that forces a full scan.
+- `--index-path`, `--max-filesize`, `--no-max-filesize`, `--no-require-git`:
+  `index`, `serve` and every search. An index built with
+  `--no-max-filesize` but searched with the default cap hides every file
+  above 64 MiB.
 
 ```bash
 tgrep index . --index-path /tmp/idx --exclude vendor
@@ -184,7 +200,8 @@ expected, and tgrep prints a warning saying so. Pass `--no-require-git` to
 |---------|-------|-----|
 | `warning: no index at ... - scanning every file` | No index at the path the search looked in | If a server or index uses `--index-path`, pass the same value to the search; otherwise run `tgrep index .` or `tgrep serve .` |
 | `Server unreachable, falling back to local index` | Server died or `serve.json` is stale | Restart `tgrep serve .` |
-| A new file is not found | On-disk index is stale | Run `tgrep index .` or use a server |
+| A new file is not found, no server | On-disk index predates the file | Run `tgrep index .` |
+| A new file is not found, server running | First build still in progress, or the watcher event is still queued | Wait, or pass `--no-index` for this search; re-running `tgrep index .` does not update a running server |
 | Search is slow despite a server | Flag bypasses the index (see above) | Drop the flag or scope with `-g`/`-t` |
 
 ## Tool definition sketch
