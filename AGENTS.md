@@ -17,15 +17,20 @@ tgrep "pattern" .    # every search: finds the server, answers in milliseconds
 
 A search resolves in this order:
 
-1. **Server** running for this tree: query it over TCP. Fastest, and always
-   current because the server watches the filesystem.
+1. **Server** running for this tree: query it over TCP. Fastest. A file
+   watcher keeps the index close to the filesystem, though a missed
+   notification can leave a short-lived gap, and `--no-watch` turns the
+   watcher off.
 2. **On-disk index** but no server: read `.tgrep/` directly. Fast, but only as
    fresh as the last `tgrep index` run.
 3. **No index**: scan every file, like grep. Correct but slow on large trees.
    tgrep prints a warning on stderr when this happens.
 
-An agent never has to choose between these. It runs the same command and gets
-the same output; only the latency differs.
+An agent never has to choose between these; the command is the same. Results
+can differ, though: an on-disk index omits changes since its last build, and a
+server that is still building its index answers from partial data. For an
+exhaustive search, check `tgrep status .` and wait for `Indexing: complete`,
+or rebuild with `tgrep index .`.
 
 ## Setup
 
@@ -56,8 +61,9 @@ and run `tgrep index .` instead. Searches then use the on-disk index. Re-run
 
 ## Searching
 
-The command line is a ripgrep subset. Anything you already do with `rg` should
-work unchanged.
+The command line follows ripgrep. The common `rg` flags are supported with the
+same names and meanings; an unsupported flag is rejected with an error rather
+than ignored. The full list is in the [README](README.md#cli-flags).
 
 ```bash
 tgrep "fn parse_config" .                 # regex, default
@@ -137,10 +143,13 @@ Avoid these on large repositories unless you need them.
 
 ## Keep `index`, `serve` and search flags aligned
 
-`--index-path`, `--exclude`, and `--max-filesize` describe the index. Pass the
-same values to `tgrep index`, `tgrep serve` and each search. If they differ,
-the client either cannot find the server or silently searches a different set
-of files.
+Some flags describe the index, so `index`, `serve` and search have to agree on
+them. If they differ, the client either cannot find the server or silently
+searches a different set of files.
+
+- `--exclude <DIR>`: `index` and `serve` only. Use the same value on both.
+- `--index-path`, `--max-filesize`, `--no-require-git`: `index`, `serve` and
+  every search.
 
 ```bash
 tgrep index . --index-path /tmp/idx --exclude vendor
@@ -150,9 +159,10 @@ tgrep "pattern" . --index-path /tmp/idx
 
 ## Repositories without `.git`
 
-tgrep refuses to index a tree that is not a Git repository, to avoid indexing
-a home directory by mistake. For a plain directory pass `--no-require-git` to
-both `index` and `serve`.
+tgrep indexes plain directories normally, but like ripgrep it ignores
+`.gitignore` files outside a Git repository. The index is then larger than
+expected, and tgrep prints a warning saying so. Pass `--no-require-git` to
+`index`, `serve` and search to apply the ignore rules anyway.
 
 ## Troubleshooting
 
