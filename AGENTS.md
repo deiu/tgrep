@@ -18,9 +18,9 @@ tgrep "pattern" .    # every search: finds the server, answers in milliseconds
 A search resolves in this order:
 
 1. **Server** running for this tree: query it over TCP. Fastest. A file
-   watcher keeps the index close to the filesystem, though a missed
-   notification can leave a short-lived gap, and `--no-watch` turns the
-   watcher off.
+   watcher keeps the index close to the filesystem, though a silently missed
+   notification is repaired only by periodic reconciliation (scheduled hourly
+   and deferrable for up to four hours while queried); `--no-watch` disables it.
 2. **On-disk index** but no server: read `.tgrep/` directly. Fast, but only as
    fresh as the last `tgrep index` run.
 3. **No index**: scan every file, like grep. Correct but slow on large trees.
