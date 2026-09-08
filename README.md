@@ -66,9 +66,9 @@ tgrep <pattern> ---TCP---> tgrep serve (multi-client)
 - **LiveIndex** — in-memory overlay for files modified after server start, or
   being built by the background indexer
 - **HybridIndex** — merges both layers; overlay takes precedence
-- **Background Indexer** — builds the index in parallel batches of 500 files
-  using rayon; a cold start serves an empty index until the first build is
-  published, while a resumed partial index serves what it already has
+- **Background Indexer** — builds the index in parallel batches of 1,024 files 
+  (with additional byte-based splitting); a cold start serves an empty index until
+  the first build is published, while a resumed partial index is capped at 500 files
 - **Periodic Flush** — every 50K files or 5 minutes, the in-memory index is
   flushed to disk and the reader is swapped, keeping memory bounded
 - **File Watcher** — `notify` crate watches the repo; updates LiveIndex in
@@ -284,7 +284,6 @@ tgrep serve . --exclude node_modules   # exclude directories from indexing
 The server builds the index in the background if none exists. During that
 first build, queries are answered from an empty index and return nothing;
 `tgrep status` reports that indexing is in progress. When the server resumes a partial
-
 index instead, queries are answered from the files already indexed. Multiple
 clients can connect simultaneously.
 
@@ -702,10 +701,10 @@ exit code determined by the search alone. Suppress the message with
 
 3. **Serving** — `tgrep serve` wraps the index in a HybridIndex, watches for
    filesystem changes, and serves queries over TCP. If no index exists, it
-   builds one in the background (batches of 500 files, parallel extraction);
-   queries see an empty index until that first build is published, and see
-   partial data only when a partial index is being resumed. The index is flushed to disk
-   every 50K files or 5 minutes. Multiple clients connect simultaneously;
+   builds one in the background (batches of 1,024 files and may split sooner 
+   by byte budgets); queries see an empty index until that first build is published, 
+   and see partial data only when a partial index is being resumed. The index is 
+   flushed to disk every 50K files or 5 minutes. Multiple clients connect simultaneously;
    searches use read locks for zero contention.
 
 ## On-Disk Format
