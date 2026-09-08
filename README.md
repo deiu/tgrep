@@ -283,7 +283,7 @@ tgrep serve . --exclude node_modules   # exclude directories from indexing
 
 The server builds the index in the background if none exists. During that
 first build, queries are answered from an empty index and return nothing;
-`tgrep status` reports the build progress. When the server resumes a partial
+`tgrep status` reports that indexing is in progress. When the server resumes a partial
 index instead, queries are answered from the files already indexed. Multiple
 clients can connect simultaneously.
 
