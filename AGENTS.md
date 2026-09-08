@@ -32,9 +32,10 @@ server started with no index at all answers from an empty index, so every
 search returns nothing, until the first build completes. A server resuming a
 partial index answers from what it has so far. `tgrep status .` shows
 `Indexing: complete` once the initial build is done, but that does not cover
-watcher events missed later. When a search must reflect the
-filesystem exactly as it is now, pass `--no-index`. It scans every file and
-is slow on large trees, so use it deliberately.
+watcher events missed later. When a search must reflect current file
+contents, pass `--no-index`. It reads every eligible file from disk instead of
+consulting the index, still applying the normal ignore, hidden-file, binary
+and size rules. It is slow on large trees, so use it deliberately.
 
 ## Setup
 
@@ -83,8 +84,9 @@ tgrep --files . -t py                     # list searchable Python files
 Rules of thumb for agents:
 
 - **Put `--` before the pattern** and pass the search root explicitly. Shell
-  quotes do not stop the parser from reading a bare `serve`, `index` or
-  `status` as a subcommand; `tgrep -- serve .` searches for the word.
+  quotes do not stop the parser from reading a bare `index`, `serve`,
+  `search`, `status`, `count-files` or `help` as a subcommand;
+  `tgrep -- serve .` searches for the word.
 - **Prefer `-F`** when the query is a symbol or a string the user typed. It
   avoids regex-escaping mistakes.
 - **Narrow with `-t` or `-g`** before adding `-m`. The index makes scoping
@@ -179,7 +181,7 @@ expected, and tgrep prints a warning saying so. Pass `--no-require-git` to
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `warning: no index at ... - scanning every file` | No index and no server | Run `tgrep index .` or `tgrep serve .` |
+| `warning: no index at ... - scanning every file` | No index at the path the search looked in | If a server or index uses `--index-path`, pass the same value to the search; otherwise run `tgrep index .` or `tgrep serve .` |
 | `Server unreachable, falling back to local index` | Server died or `serve.json` is stale | Restart `tgrep serve .` |
 | A new file is not found | On-disk index is stale | Run `tgrep index .` or use a server |
 | Search is slow despite a server | Flag bypasses the index (see above) | Drop the flag or scope with `-g`/`-t` |
@@ -206,5 +208,6 @@ If you expose tgrep to a model as a tool, a minimal schema is:
 
 Run `tgrep <flags...> -- <pattern> <path>` and return stdout, stderr and the
 exit code together. Treat `1` as "no results", not as a failure. Treat `2` as
-an error and surface stderr; it carries the bad-regex message or the
-"no index" warning that explains an empty or slow result.
+an error; stderr then carries the cause, such as a bad regex. Always pass
+stderr through regardless of the exit code: the "no index" warning arrives
+with code `0` or `1` and explains why a search was slow.
